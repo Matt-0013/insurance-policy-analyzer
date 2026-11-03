@@ -7,7 +7,10 @@ authors = [
     { name = "Matt-0013", email = "saiarun581@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pymupdf4llm>=2.1",
+    "wordninja>=2.0.0",
+]
 
 [project.scripts]
 insurance-policy-analyzer = "insurance_policy_analyzer:main"
@@ -15,3 +18,8 @@ insurance-policy-analyzer = "insurance_policy_analyzer:main"
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
