@@ -62,6 +62,25 @@ def pack(blocks: list[tuple[int, str]], max_chars: int) -> list[list[tuple[int, 
         groups.append(current)
     return groups
 
+def split_long(text: str, max_chars: int = MAX_CHARS) -> list[str]:
+    """Split an oversized chunk at line / <br> boundaries, repeating a table header."""
+    if len(text) <= max_chars:
+        return [text]
+    lines = text.split("\n")
+    header = ""
+    if text.startswith("|") and len(lines) > 1 and lines[1].startswith("|---"):
+        header = "\n".join(lines[:2]) + "\n"
+        text = "\n".join(lines[2:])
+    pieces = [p for p in re.split(r"(?<=<br>)|\n", text) if p.strip()]
+    parts, current = [], ""
+    for piece in pieces:
+        if current and len(header) + len(current) + len(piece) > max_chars:
+            parts.append(header + current)
+            current = ""
+        current += piece + "\n"
+    if current.strip():
+        parts.append(header + current)
+    return [p.strip() for p in parts]
 
 def chunk_document(policy: str, pages: list[dict]) -> list[dict]:
     chunks = []
@@ -71,16 +90,17 @@ def chunk_document(policy: str, pages: list[dict]) -> list[dict]:
             text = re.sub(r"</?mark>", "", text).strip()
             if len(text) < MIN_CHARS:
                 continue
-            chunks.append(
-                {
-                    "chunk_id": f"{policy}-{len(chunks):04d}",
-                    "policy": policy,
-                    "section": section["title"],
-                    "page_start": group[0][0],
-                    "page_end": group[-1][0],
-                    "text": text,
-                }
-            )
+            for part in split_long(text):
+                chunks.append(
+                    {
+                        "chunk_id": f"{policy}-{len(chunks):04d}",
+                        "policy": policy,
+                        "section": section["title"],
+                        "page_start": group[0][0],
+                        "page_end": group[-1][0],
+                        "text": part,
+                    }
+                )
     return chunks
 
 
