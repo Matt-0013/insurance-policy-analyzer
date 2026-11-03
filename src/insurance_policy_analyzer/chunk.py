@@ -91,6 +91,8 @@ def chunk_document(policy: str, pages: list[dict]) -> list[dict]:
             if len(text) < MIN_CHARS:
                 continue
             for part in split_long(text):
+                if len(part) < MIN_CHARS:
+                    continue
                 chunks.append(
                     {
                         "chunk_id": f"{policy}-{len(chunks):04d}",

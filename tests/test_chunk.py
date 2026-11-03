@@ -1,0 +1,31 @@
+from insurance_policy_analyzer.chunk import chunk_document, split_long
+
+
+def _table(rows: int) -> str:
+    head = "|DESCRIPTION|TERMS|\n|---|---|\n"
+    body = "".join(f"|Benefit {i} pays up to Rs. {i}000 per claim.<br>\n" for i in range(rows))
+    return head + body
+
+
+def test_split_long_repeats_table_header():
+    parts = split_long(_table(60), max_chars=600)
+    assert len(parts) > 1
+    assert all(p.startswith("|DESCRIPTION|TERMS|") for p in parts)
+    assert all(len(p) <= 600 for p in parts)
+
+
+def test_split_long_keeps_every_row():
+    joined = " ".join(split_long(_table(60), max_chars=600))
+    assert all(f"Benefit {i} pays" in joined for i in range(60))
+
+
+def test_short_text_is_not_split():
+    assert split_long("Short clause.") == ["Short clause."]
+
+
+def test_tiny_leftover_piece_is_dropped():
+    lines = [f"Clause {i:02d} " + "a" * 95 for i in range(14)]
+    text = "# 1. Preamble\n\n" + "\n".join(lines) + "\n" + "b" * 30
+    chunks = chunk_document("demo", [{"page": 1, "text": text}])
+    assert len(chunks) == 1
+    assert chunks[0]["text"].startswith("Clause 00")
