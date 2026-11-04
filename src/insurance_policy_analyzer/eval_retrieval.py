@@ -1,6 +1,6 @@
 ﻿import json
 import re
-
+import sys
 from insurance_policy_analyzer.config import CHUNKS_DIR, PROJECT_ROOT
 from insurance_policy_analyzer.search import search
 
@@ -46,7 +46,7 @@ def main(label: str = "vector") -> None:
             invalid.append(q["id"])
             print(f"BAD TEST PHRASE  {q['id']}: no chunk of {q['policy']} contains {phrases}")
             continue
-        hits = search(q["question"], k=K)
+        hits = search(q["question"], k=K, mode=label)
         rank = next(
             (i for i, h in enumerate(hits, 1) if h["policy"] == q["policy"] and contains_all(haystack(h), phrases)),
             None,
@@ -70,5 +70,4 @@ def main(label: str = "vector") -> None:
 
 
 if __name__ == "__main__":
-    main()
-
+    main(sys.argv[1] if len(sys.argv) > 1 else "vector")
