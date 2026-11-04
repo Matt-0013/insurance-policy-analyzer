@@ -1,4 +1,4 @@
-import json
+﻿import json
 import re
 from pathlib import Path
 
@@ -9,7 +9,7 @@ MIN_CHARS = 40
 
 
 def clean_heading(line: str) -> str:
-    line = re.sub(r"</?mark>", "", line)
+    line = re.sub(r"</?[A-Za-z][^>]*>", " ", line)
     line = line.replace("*", "").lstrip("#")
     return re.sub(r"\s+", " ", line).strip()
 
@@ -94,7 +94,7 @@ def chunk_document(policy: str, pages: list[dict]) -> list[dict]:
     for section in split_sections(pages):
         for group in pack(section["blocks"], MAX_CHARS):
             text = "\n\n".join(t for _, t in group)
-            text = re.sub(r"</?mark>", "", text).strip()
+            text = re.sub(r"</?(?:mark|u)>", "", text).strip()
             if len(text) < MIN_CHARS:
                 continue
             for part in split_long(text):

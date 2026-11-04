@@ -52,3 +52,8 @@ def test_definition_heading_keeps_its_full_first_line():
 
 
        
+
+def test_html_tags_are_removed_from_titles():
+    from insurance_policy_analyzer.chunk import heading_text
+
+    assert heading_text("4. <u>Claim Cost Sharing</u>") == "4. Claim Cost Sharing"
