@@ -13,3 +13,4 @@ data/raw/
 .env
 data/processed/
 data/chunks/
+data/chroma/
