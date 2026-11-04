@@ -11,3 +11,6 @@ CHROMA_DIR = DATA_DIR / "chroma"
 
 EMBEDDING_MODEL = "ibm-granite/granite-embedding-small-english-r2"
 COLLECTION_NAME = "policy_chunks"
+GENERATION_MODEL = "openai/gpt-oss-120b"
+REASONING_EFFORT = "low"
+TOP_K = 5
