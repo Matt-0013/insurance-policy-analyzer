@@ -29,3 +29,17 @@ def test_tiny_leftover_piece_is_dropped():
     chunks = chunk_document("demo", [{"page": 1, "text": text}])
     assert len(chunks) == 1
     assert chunks[0]["text"].startswith("Clause 00")
+
+
+def test_definition_line_keeps_only_the_term():
+    from insurance_policy_analyzer.chunk import heading_text
+
+    assert heading_text("2.2.10 General Ward means a") == "2.2.10 General Ward"
+    assert heading_text("14. Intensive Care Unit : means an identified") == "14. Intensive Care Unit"
+
+
+def test_trailing_colon_is_removed():
+    from insurance_policy_analyzer.chunk import heading_text
+
+    assert heading_text("4.2. Specific Exclusions:") == "4.2. Specific Exclusions"
+    assert heading_text("Just a normal sentence.") is None

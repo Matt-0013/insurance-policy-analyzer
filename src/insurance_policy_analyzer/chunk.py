@@ -17,14 +17,17 @@ NUMBERED = re.compile(r"^(?:\d+(?:\.\d+)+\.?|\d+\.|[IVX]+\.)\s+\S")
 MAX_HEADING_CHARS = 80
 
 
+MEANS = re.compile(r"\s*:?\s*\bmeans\b.*$", re.IGNORECASE)
+
+
 def heading_text(line: str) -> str | None:
     """Return the cleaned title if this line is a section heading, else None."""
     line = line.strip()
     if line.startswith("#"):
-        return clean_heading(line)
+        return clean_heading(line).rstrip(" :")
     plain = clean_heading(line)
     if NUMBERED.match(plain) and len(plain) <= MAX_HEADING_CHARS:
-        return plain
+        return MEANS.sub("", plain).rstrip(" :")
     return None
 
 def split_sections(pages: list[dict]) -> list[dict]:
