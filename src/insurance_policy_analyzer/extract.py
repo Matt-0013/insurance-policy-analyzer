@@ -1,18 +1,30 @@
-import json
+﻿import json
+import re
 from pathlib import Path
 
+import pymupdf
 import pymupdf4llm
 
 from insurance_policy_analyzer.clean import clean_text
+from insurance_policy_analyzer.config import PROCESSED_DIR, RAW_DIR
 
-RAW_DIR = Path("data/raw")
-OUT_DIR = Path("data/processed")
-MIN_CHARS = 50  # a page with less text than this is treated as a failed extraction
+# Share of letters+digits that must survive vs plain PyMuPDF text.
+MIN_COVERAGE = 0.8
+
+
+def _alnum(text: str) -> int:
+    text = re.sub(r"<br>|</?mark>", "", text)
+    return len(re.sub(r"[^A-Za-z0-9]", "", text))
+
+
+def coverage(text: str, reference: str) -> float:
+    """How much of the reference text's letters and digits is present in text."""
+    return _alnum(text) / max(1, _alnum(reference))
 
 
 def _markdown_pages(pdf_path: Path, pages: list[int] | None, layout: bool) -> list[str]:
-    """Extract markdown per page. layout=False is classic mode, which keeps
-    table text complete; layout=True is PyMuPDF4LLM 2.x's default mode."""
+    """layout=False is classic mode (keeps table text complete);
+    layout=True is PyMuPDF4LLM 2.x's default mode (better headings)."""
     pymupdf4llm.use_layout(layout)
     kwargs = {"page_chunks": True}
     if pages is not None:
@@ -21,29 +33,38 @@ def _markdown_pages(pdf_path: Path, pages: list[int] | None, layout: bool) -> li
 
 
 def extract_pdf(pdf_path: Path) -> list[dict]:
-    """Classic mode first; re-extract nearly empty pages in layout mode."""
+    with pymupdf.open(pdf_path) as doc:
+        plain = [page.get_text() for page in doc]
+
     texts = _markdown_pages(pdf_path, None, layout=False)
-    weak = [i for i, t in enumerate(texts) if len(t.strip()) < MIN_CHARS]
     methods = ["classic"] * len(texts)
+    scores = [coverage(t, r) for t, r in zip(texts, plain)]
+
+    weak = [i for i, s in enumerate(scores) if s < MIN_COVERAGE]
     if weak:
         for i, t in zip(weak, _markdown_pages(pdf_path, weak, layout=True)):
-            texts[i] = t
-            methods[i] = "layout"
+            score = coverage(t, plain[i])
+            if score > scores[i]:
+                texts[i], methods[i], scores[i] = t, "layout", score
+
+    for i, s in enumerate(scores):
+        if s < MIN_COVERAGE:  # last resort: keeps every word, loses structure
+            texts[i], methods[i], scores[i] = plain[i], "plain", 1.0
+
     return [
-        {"page": i + 1, "text": clean_text(t), "method": m}
-        for i, (t, m) in enumerate(zip(texts, methods))
+        {"page": i + 1, "text": clean_text(t), "method": m, "coverage": round(s, 2)}
+        for i, (t, m, s) in enumerate(zip(texts, methods, scores))
     ]
 
 
 def main() -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     for pdf_path in sorted(RAW_DIR.glob("*.pdf")):
         pages = extract_pdf(pdf_path)
-        out_file = OUT_DIR / f"{pdf_path.stem}.json"
+        out_file = PROCESSED_DIR / f"{pdf_path.stem}.json"
         out_file.write_text(json.dumps(pages, indent=2, ensure_ascii=False), encoding="utf-8")
-        fallback = sum(1 for p in pages if p["method"] == "layout")
-        empty = sum(1 for p in pages if len(p["text"].strip()) < MIN_CHARS)
-        print(f"{pdf_path.name}: {len(pages)} pages, {fallback} via layout fallback, {empty} still empty")
+        counts = {m: sum(1 for p in pages if p["method"] == m) for m in ("classic", "layout", "plain")}
+        print(f"{pdf_path.name}: {len(pages)} pages, {counts}")
 
 
 if __name__ == "__main__":
