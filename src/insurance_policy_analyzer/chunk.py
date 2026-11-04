@@ -42,11 +42,15 @@ def split_sections(pages: list[dict]) -> list[dict]:
             lines = block.splitlines()
             title = heading_text(lines[0])
             if title is not None:
-                sections.append(current)
-                current = {"title": title, "blocks": []}
-                block = "\n".join(lines[1:]).strip()
-                if not block:
-                    continue
+                   sections.append(current)
+                   current = {"title": title, "blocks": []}
+                   block = "\n".join(lines[1:]).strip()
+                   full_line = clean_heading(lines[0])
+                   if title != full_line.rstrip(" :"):
+                       # the title dropped words (e.g. "means a ..."): keep the full line
+                       block = (full_line + "\n" + block).strip()
+                   if not block:
+                       continue
             current["blocks"].append((page["page"], block))
     sections.append(current)
     return sections

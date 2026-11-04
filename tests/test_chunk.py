@@ -43,3 +43,12 @@ def test_trailing_colon_is_removed():
 
     assert heading_text("4.2. Specific Exclusions:") == "4.2. Specific Exclusions"
     assert heading_text("Just a normal sentence.") is None
+
+def test_definition_heading_keeps_its_full_first_line():
+       text = "2.2.10 General Ward means a\nroom with several beds, as defined in the policy wording."
+       chunks = chunk_document("demo", [{"page": 1, "text": text}])
+       assert chunks[0]["section"] == "2.2.10 General Ward"
+       assert "General Ward means a" in chunks[0]["text"]
+
+
+       
