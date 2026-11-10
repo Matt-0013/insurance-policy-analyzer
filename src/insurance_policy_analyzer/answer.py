@@ -1,59 +1,52 @@
-import os
+"""CLI: ask one question and print the grounded answer with its sources."""
+
 import sys
-from functools import lru_cache
 
-from dotenv import load_dotenv
-from groq import Groq
-
-from insurance_policy_analyzer.config import GENERATION_MODEL, REASONING_EFFORT, TOP_K
-from insurance_policy_analyzer.search import search
-
-load_dotenv()
-
-SYSTEM_PROMPT = """You answer questions about Indian health insurance policies.
-Use ONLY the numbered sources provided. Cite the sources you use, like [1] or [2][3].
-Say which policy each fact comes from.
-If the sources do not contain the answer, reply exactly: I could not find this in the provided policies.
-Never guess amounts, periods or limits.
-This is general information, not insurance advice."""
+from insurance_policy_analyzer.pipeline import ask
 
 
-@lru_cache(maxsize=1)
-def _client() -> Groq:
-    return Groq(api_key=os.environ["GROQ_API_KEY"])
-
-
-def format_sources(hits: list[dict]) -> str:
-    blocks = []
-    for n, hit in enumerate(hits, start=1):
-        policy = hit["policy"].replace("_", " ")
-        blocks.append(f"[{n}] {policy} | {hit['section']} | page {hit['page_start']}\n{hit['text']}")
-    return "\n\n".join(blocks)
-
-
-def answer(question: str, k: int = TOP_K) -> dict:
-    hits = search(question, k=k)
-    response = _client().chat.completions.create(
-        model=GENERATION_MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Sources:\n{format_sources(hits)}\n\nQuestion: {question}"},
-        ],
-        reasoning_effort=REASONING_EFFORT,
-        temperature=0,
-    )
-    return {"answer": response.choices[0].message.content, "sources": hits, "usage": response.usage}
+def answer(question: str, **kwargs) -> dict:
+    """Backwards-compatible wrapper around pipeline.ask."""
+    return ask(question, **kwargs)
 
 
 def main() -> None:
-    question = " ".join(sys.argv[1:])
+    # Model output contains typographic dashes; the default Windows console codec
+    # cannot encode them and would crash on print.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    question = " ".join(sys.argv[1:]).strip()
+    if not question:
+        print('usage: python -m insurance_policy_analyzer.answer "your question"')
+        return
+
     result = answer(question)
     print(result["answer"])
+
     print("\nSources:")
-    for n, hit in enumerate(result["sources"], start=1):
-        print(f"  [{n}] {hit['policy']} | {hit['section']} | p.{hit['page_start']}")
-    usage = result["usage"]
-    print(f"\nTokens: prompt {usage.prompt_tokens}, completion {usage.completion_tokens}, total {usage.total_tokens}")
+    for source in result["sources"]:
+        print(f"  [{source['n']}] {source['policy_label']} | {source['section']} | p.{source['page_start']}")
+
+    grounding = result["grounding"]
+    if not grounding["grounded"]:
+        print("\nGrounding warning:")
+        for number in grounding["unsupported_numbers"]:
+            print(f"  figure not found in sources: {number['raw']} ({number['kind']})")
+        for number in grounding["invalid_citations"]:
+            print(f"  citation points at a missing source: [{number}]")
+        if not grounding["citations"]:
+            print("  answer cites no sources")
+
+    if result["usage"]:
+        usage = result["usage"]
+        print(
+            f"\nTokens: {usage['prompt_tokens']} prompt + "
+            f"{usage['completion_tokens']} completion = {usage['total_tokens']}"
+        )
+    print(
+        f"Timing: {result['timings_ms']['retrieval']} ms retrieval, "
+        f"{result['timings_ms']['total']} ms total"
+    )
 
 
 if __name__ == "__main__":
