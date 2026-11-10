@@ -1,0 +1,54 @@
+{
+  "summary": {
+    "label": "rerank",
+    "questions": 10,
+    "invalid": [],
+    "hit@1": 0.7,
+    "hit@3": 1.0,
+    "hit@5": 1.0,
+    "hit@10": 1.0,
+    "mrr": 0.83
+  },
+  "rows": [
+    {
+      "id": "niva-ambulance-road",
+      "rank": 1
+    },
+    {
+      "id": "care-ped-wait",
+      "rank": 1
+    },
+    {
+      "id": "care-room-rent",
+      "rank": 1
+    },
+    {
+      "id": "care-named-ailments",
+      "rank": 1
+    },
+    {
+      "id": "icici-30day-wait",
+      "rank": 1
+    },
+    {
+      "id": "icici-maternity",
+      "rank": 1
+    },
+    {
+      "id": "niva-copay",
+      "rank": 1
+    },
+    {
+      "id": "niva-ped-wait",
+      "rank": 2
+    },
+    {
+      "id": "star-sum-insured",
+      "rank": 2
+    },
+    {
+      "id": "star-newborn-limit",
+      "rank": 3
+    }
+  ]
+}

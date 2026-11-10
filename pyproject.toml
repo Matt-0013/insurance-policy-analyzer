@@ -1,7 +1,7 @@
 [project]
 name = "insurance-policy-analyzer"
 version = "0.1.0"
-description = "Add your description here"
+description = "Advanced RAG over Indian health insurance policies: hybrid retrieval, grounded answers with page citations, and measured retrieval quality"
 readme = "README.md"
 authors = [
     { name = "Matt-0013", email = "saiarun581@gmail.com" }

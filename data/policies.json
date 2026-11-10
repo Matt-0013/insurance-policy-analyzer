@@ -1,0 +1,26 @@
+{
+  "care_health_care_advanced_terms": {
+    "insurer": "Care Health",
+    "name": "Care Advanced",
+    "doc_type": "terms and conditions",
+    "aliases": ["care health", "care insurance", "care advanced"]
+  },
+  "icici_lombard_family_shield_wording": {
+    "insurer": "ICICI Lombard",
+    "name": "Family Shield",
+    "doc_type": "policy wording",
+    "aliases": ["icici", "icici lombard", "family shield"]
+  },
+  "niva_bupa_senior_first_wording": {
+    "insurer": "Niva Bupa",
+    "name": "Senior First",
+    "doc_type": "policy wording",
+    "aliases": ["niva", "niva bupa", "senior first", "seniorfirst"]
+  },
+  "star_health_women_care_brochure": {
+    "insurer": "Star Health",
+    "name": "Women Care",
+    "doc_type": "brochure",
+    "aliases": ["star", "star health", "women care", "star women care"]
+  }
+}

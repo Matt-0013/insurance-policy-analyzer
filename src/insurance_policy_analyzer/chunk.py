@@ -1,9 +1,10 @@
 ﻿import json
 import re
-from pathlib import Path
 
-IN_DIR = Path("data/processed")
-OUT_DIR = Path("data/chunks")
+from insurance_policy_analyzer.config import CHUNKS_DIR, PROCESSED_DIR
+
+IN_DIR = PROCESSED_DIR
+OUT_DIR = CHUNKS_DIR
 MAX_CHARS = 1500
 MIN_CHARS = 40
 

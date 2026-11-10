@@ -1,8 +1,16 @@
-﻿import json
+"""Retrieval evaluation: hit@k and MRR over the golden questions.
+
+A hit counts only when the retrieved chunk comes from the right policy AND
+contains the expected phrases, so a chunk that merely mentions the policy does
+not score.
+"""
+
+import json
 import re
 import sys
+
 from insurance_policy_analyzer.config import CHUNKS_DIR, PROJECT_ROOT
-from insurance_policy_analyzer.search import search
+from insurance_policy_analyzer.search import MODES, search
 
 QUESTIONS = PROJECT_ROOT / "eval" / "questions.jsonl"
 RESULTS_DIR = PROJECT_ROOT / "eval" / "results"
@@ -20,8 +28,9 @@ def contains_all(text: str, phrases: list[str]) -> bool:
 
 
 def haystack(item: dict) -> str:
-       """Section title + text: the same content the embedding sees."""
-       return f"{item['section']}\n{item['text']}"
+    """Section title + text: the same content the embedding sees."""
+    return f"{item['section']}\n{item['text']}"
+
 
 def load_questions() -> list[dict]:
     lines = QUESTIONS.read_text(encoding="utf-8-sig").splitlines()
@@ -35,7 +44,10 @@ def load_chunks() -> list[dict]:
     return chunks
 
 
-def main(label: str = "vector") -> None:
+def main(label: str = "hybrid") -> None:
+    if label not in MODES:
+        raise SystemExit(f"unknown mode {label!r}; expected one of {MODES}")
+
     questions = [q for q in load_questions() if q["answerable"]]
     chunks = load_chunks()
     rows, invalid = [], []
@@ -48,7 +60,11 @@ def main(label: str = "vector") -> None:
             continue
         hits = search(q["question"], k=K, mode=label)
         rank = next(
-            (i for i, h in enumerate(hits, 1) if h["policy"] == q["policy"] and contains_all(haystack(h), phrases)),
+            (
+                i
+                for i, h in enumerate(hits, 1)
+                if h["policy"] == q["policy"] and contains_all(haystack(h), phrases)
+            ),
             None,
         )
         rows.append({"id": q["id"], "rank": rank})
@@ -59,7 +75,10 @@ def main(label: str = "vector") -> None:
         "label": label,
         "questions": n,
         "invalid": invalid,
-        **{f"hit@{k}": round(sum(1 for r in rows if r["rank"] and r["rank"] <= k) / n, 2) for k in (1, 3, 5, 10)},
+        **{
+            f"hit@{k}": round(sum(1 for r in rows if r["rank"] and r["rank"] <= k) / n, 2)
+            for k in (1, 3, 5, 10)
+        },
         "mrr": round(sum(1 / r["rank"] for r in rows if r["rank"]) / n, 2),
     }
     print(json.dumps(summary, indent=2))
@@ -70,4 +89,4 @@ def main(label: str = "vector") -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "vector")
+    main(sys.argv[1] if len(sys.argv) > 1 else "hybrid")
