@@ -19,6 +19,7 @@ dependencies = [
     "ragas>=0.4.3",
     "sentence-transformers>=6.2.0",
     "streamlit>=1.67.0",
+    "torch>=2.15.0",
     "uvicorn[standard]>=0.54.0",
     "wordninja>=2.0.0",
 ]
@@ -35,3 +36,15 @@ dev = [
     "httpx>=0.28.1",
     "pytest>=9.2.0",
 ]
+
+# Linux wheels on PyPI bundle the CUDA runtime (~7 GB of nvidia-* packages), and
+# this project only ever embeds and reranks on CPU. Pinning the CPU index keeps
+# the image small and the container build reproducible; uv reads this through
+# the lockfile, so the wheel is chosen at lock time rather than at install time.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
