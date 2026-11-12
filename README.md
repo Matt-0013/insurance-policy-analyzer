@@ -184,3 +184,125 @@ metrics (RAGAS) are on the roadmap.
 [docs/ROADMAP.md](docs/ROADMAP.md) — multi-policy comparison, RAGAS evaluation,
 FastAPI, Streamlit, Docker/CI, and the portfolio write-up, with acceptance
 criteria and the reasoning for each stage.
+
+---
+
+## Comparison engine
+
+`python -m insurance_policy_analyzer.render` prints a 12 field x 4 policy table
+where every cell carries a page number and a state.
+
+| state | meaning |
+| --- | --- |
+| `stated` | the clause is in the document; the cell quotes it |
+| `excluded` | the document carves the item out (often with an IRDAI `Excl` code) |
+| `scheduled` | the wording defers the number to the Policy Schedule, which is a separate document |
+| `not stated` | every alias was tried against a complete document and the concept is absent |
+
+**Why `scheduled` exists.** Policy *wordings* describe mechanisms and route every
+quantity to the schedule issued with the individual policy; *brochures* print the
+numbers because they are selling. In this corpus ICICI's wording runs to 205,113
+characters and contains zero occurrences of "per day" or "% of Sum Insured",
+while Star Health's brochure carries the actual slab table
+(`|5,00,000/-|Upto 1% of Sum Insured per day|`). Writing "not stated" for those
+cells would be false; writing a number would be invented.
+
+**How a cell is decided.** A field is mentioned many times per document: in a
+definition, in a benefit clause, in an exclusion list, in a consumables price
+list. Candidates are therefore scored (clean +2, definition +2, schedule
+reference +1, quantity +1, comma list -1) and the state comes from the winner.
+Polarity is read narrowest-first: IRDAI code within +/-150 characters, then the
+owning sentence, then the same-chunk preamble, then only strong markers
+("shall not be liable") in the previous chunk, then an `Exclusions` heading.
+
+**Known limitations, stated rather than hidden**
+
+- ICICI and Niva Bupa `maternity` read `stated` although the quoted text is a
+  carve-out list; the governing header is more than one chunk away.
+- Cells quote the clause instead of extracting normalised values ("36 months",
+  "1% of Sum Insured") — value extraction is the next step.
+- Care Health `ambulance` is `not stated`: the only mentions are a consumables
+  price list, not a benefit clause.
+
+## API
+
+```bash
+uv run uvicorn insurance_policy_analyzer.api:app --reload --port 8000
+```
+
+| endpoint | purpose |
+| --- | --- |
+| `GET /health` | liveness, policy count, available retrieval modes |
+| `GET /documents` | indexed policies with insurer, product, doc type, aliases |
+| `POST /ask` | question + optional history/policy/mode/k -> answer, sources, grounding, timings |
+| `POST /compare` | optional policy subset -> per-field cells with state, quote, page, plus markdown |
+
+```bash
+curl -s localhost:8000/health
+curl -s -X POST localhost:8000/ask -H "content-type: application/json" \
+  -d '{"question":"What is the waiting period for pre-existing diseases?","mode":"hybrid"}'
+curl -s -X POST localhost:8000/compare -H "content-type: application/json" \
+  -d '{"policies":["niva_bupa_senior_first_wording","star_health_women_care_brochure"]}'
+```
+
+The retrieval stack (torch, chromadb, the embedding model) is imported inside the
+endpoint, so `/health` and the OpenAPI schema answer without loading a model.
+
+## UI
+
+```bash
+uv run streamlit run app.py
+```
+
+Ask tab shows the answer, a grounding badge and expandable sources with page
+numbers; Compare tab renders the evidence table; Documents tab lists what is
+indexed; Evaluation tab shows whatever is in `eval/results/`.
+
+## Packaging
+
+```bash
+export GROQ_API_KEY=...      # PowerShell: $env:GROQ_API_KEY="..."
+docker compose up --build    # api on :8000, ui on :8501, data/ mounted from the host
+```
+
+Multi-stage build (uv resolves dependencies in the builder), non-root runtime,
+`.dockerignore` keeps `.git`, `.venv`, `eval/` and `.env` out of the image.
+`make ingest|api|ui|test|eval|compare` wraps the common commands.
+
+## Answer quality (RAGAS)
+
+```bash
+uv run python -m insurance_policy_analyzer.eval_ragas --limit 5 --k 3
+# -> eval/results/ragas_hybrid.json and eval/report.md
+```
+
+Run on 5 answerable questions, judge `openai/gpt-oss-20b` via Groq's
+OpenAI-compatible endpoint (no OpenAI key):
+
+| metric | score | what it measures |
+| --- | --- | --- |
+| faithfulness | 0.53 | are the answer's claims supported by the retrieved clauses |
+| answer relevancy | 0.93 | does the answer address the question asked |
+| context precision | 0.97 | did retrieval bring clauses that matter |
+| refusal on unanswerable | 1.00 | 2 of 2 refused instead of guessing |
+| grounded, rule-based (`citations.py`) | 1.00 (post-fix) | every figure and citation appears in the sources |
+
+Read that table honestly:
+
+- **n = 5, with one judge failure** (recorded as null, excluded from the mean).
+  This is a smoke-scale measurement, not a benchmark.
+- **The judge and the rule-based checker disagree**, and they measure different
+  things: `citations.py` checks that every figure appears verbatim in a source,
+  RAGAS faithfulness checks whether each claim is entailed by the context. An
+  answer can pass one and fail the other. Both numbers are published for that
+  reason; a single "accuracy" number would hide the disagreement.
+- **The free tier caps at 8k tokens/minute**, so the run uses one worker, `k=3`
+  and a 20b judge. The 120b judge returns 429s; a paid tier would let the sample
+  grow and the judge be stronger.
+- **Context recall is not reported**: it needs a reference answer per question,
+- **The 0.40 above this line was a bug, not a hallucination rate.** gpt-oss emits
+  fullwidth citation brackets (`【1】`) instead of `[1]`, so `parse_citations`
+  found no citations and marked correct answers ungrounded. After normalising the
+  brackets, all 5 answers verify: rule-based grounding is **1.00**. RAGAS faithfulness
+  was never affected, because the judge reads the text, not the bracket syntax.
+  and writing references after seeing the output would measure the references.

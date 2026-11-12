@@ -24,8 +24,16 @@ the tests green, the README honest, and a number you can quote.
 | Retrieval eval | 12 questions incl. 2 unanswerable, hit@k + MRR, results in `eval/results/` |
 | Tests | extraction, cleaning, chunking, fusion, citations, rewriting, context, memory |
 
-**Missing** (this is the rest of the roadmap): multi-policy comparison, FastAPI,
-Streamlit, RAGAS, Docker, CI, README, screenshots/demo.
+**Now also working:**
+
+| Area | State |
+| --- | --- |
+| Comparison | 12 evidence-backed fields x 4 policies, four cell states, page per cell (`compare.py`, `schema.py`) |
+| API | FastAPI `/ask`, `/compare`, `/documents`, `/health`, typed contracts, CORS (`api.py`) |
+| UI | Streamlit: ask with citations, compare table, documents, evaluation tabs (`app.py`) |
+| Packaging | multi-stage non-root Dockerfile, docker-compose (api + ui), Makefile, GitHub Actions CI |
+
+**Still missing:** RAGAS numbers (Stage 4), document upload/reindex endpoint, screenshots and demo GIF.
 
 ---
 
