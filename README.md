@@ -241,7 +241,7 @@ uv run uvicorn insurance_policy_analyzer.api:app --reload --port 8000
 
 | endpoint | purpose |
 | --- | --- |
-| `GET /health` | liveness, policy count, available retrieval modes |
+| `GET /health` | liveness plus index presence: stored vectors vs chunk count, and `503` when the collection is empty or missing |
 | `GET /documents` | indexed policies with insurer, product, doc type, aliases |
 | `POST /ask` | question + optional history/policy/mode/k -> answer, sources, grounding, timings |
 | `POST /compare` | optional policy subset -> per-field cells with state, quote, page, plus markdown |
@@ -256,6 +256,9 @@ curl -s -X POST localhost:8000/compare -H "content-type: application/json" \
 
 The retrieval stack (torch, chromadb, the embedding model) is imported inside the
 endpoint, so `/health` and the OpenAPI schema answer without loading a model.
+`/health` reads the Chroma SQLite file with stdlib `sqlite3` for the same reason,
+and returns `503` rather than `200` when nothing is indexed — an empty store is
+not healthy just because the process is up.
 
 ## UI
 

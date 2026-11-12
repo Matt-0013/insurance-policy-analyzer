@@ -50,6 +50,26 @@ def test_health_reports_modes_without_loading_models():
     body = response.json()
     assert body["status"] == "ok"
     assert "hybrid" in body["modes"]
+    assert body["index"]["present"] is True
+    assert body["index"]["detail"]
+
+
+def test_health_reports_degraded_when_the_index_is_missing(monkeypatch, tmp_path):
+    # The case that matters: the process is up but nothing was ingested, which is
+    # what a container with an unmounted volume looks like.
+    monkeypatch.setattr(api, "index_report", lambda: {
+        "present": False,
+        "vectors": None,
+        "chunks": 0,
+        "chunk_files": 0,
+        "detail": f"no chroma.sqlite3 in {tmp_path}",
+    })
+    response = client.get("/health")
+    assert response.status_code == 503
+    body = response.json()
+    assert body["status"] == "degraded"
+    assert body["index"]["present"] is False
+    assert "chroma.sqlite3" in body["index"]["detail"]
 
 
 def test_documents_lists_the_registered_policies():
@@ -57,6 +77,27 @@ def test_documents_lists_the_registered_policies():
     assert response.status_code == 200
     ids = {doc["id"] for doc in response.json()}
     assert "niva_bupa_senior_first_wording" in ids
+
+
+def test_ask_pipeline_accepts_the_question_positionally(monkeypatch):
+    # Regression: the seam was declared **kwargs-only while the endpoint passed
+    # the question positionally, so /ask returned 500 in the container with a
+    # fully green suite. The other tests replace this seam, which hid the mismatch.
+    import insurance_policy_analyzer.pipeline as pipeline
+
+    seen = {}
+
+    def fake_ask(question, **kwargs):
+        seen.update(kwargs, question=question)
+        return fake_answer(question)
+
+    monkeypatch.setattr(pipeline, "ask", fake_ask)
+    result = api.ask_pipeline(
+        "What is the room rent limit?", k=2, policy=None, history=[], mode="hybrid", use_llm_rewrite=False
+    )
+    assert result["answer"]
+    assert seen["question"] == "What is the room rent limit?"
+    assert seen["k"] == 2
 
 
 def test_ask_passes_history_through_to_the_pipeline(monkeypatch):

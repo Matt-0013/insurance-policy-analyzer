@@ -4,7 +4,7 @@ The retrieval stack (torch, chromadb, the embedding model) is imported inside
 the endpoint instead of at module import, so /health answers immediately and the
 OpenAPI schema loads without downloading a model.
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -13,6 +13,7 @@ from .compare import build_cell, load_policies
 from .config import MODES, TOP_K
 from .render import to_markdown
 from .schema import FIELDS
+from .status import index_report
 
 app = FastAPI(
     title="Insurance Policy Analyzer",
@@ -87,16 +88,34 @@ class CompareResponse(BaseModel):
     markdown: str
 
 
-def ask_pipeline(**kwargs) -> dict:
-    """Import seam: the heavy retrieval stack loads on the first request."""
+def ask_pipeline(question: str, **kwargs) -> dict:
+    """Import seam: the heavy retrieval stack loads on the first request.
+
+    The question is a separate parameter on purpose. Declaring the seam as
+    **kwargs let the endpoint's positional call raise TypeError only inside the
+    container, where a unit test that replaces this function cannot see it.
+    """
     from .pipeline import ask
 
-    return ask(**kwargs)
+    return ask(question, **kwargs)
 
 
 @app.get("/health")
-def health() -> dict:
-    return {"status": "ok", "policies": len(registry.policy_ids()), "modes": list(MODES)}
+def health(response: Response) -> dict:
+    """Liveness plus whether the index is really there.
+
+    503 when it is not: a probe that says 200 on an empty store keeps a broken
+    container in rotation, and the failure surfaces later as a 500 from /ask.
+    """
+    index = index_report()
+    if not index["present"]:
+        response.status_code = 503
+    return {
+        "status": "ok" if index["present"] else "degraded",
+        "policies": len(registry.policy_ids()),
+        "modes": list(MODES),
+        "index": index,
+    }
 
 
 @app.get("/documents")
