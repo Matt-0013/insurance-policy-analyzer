@@ -2,8 +2,14 @@
 
 The retrieval stack (torch, chromadb, the embedding model) is imported inside
 the endpoint instead of at module import, so /health answers immediately and the
-OpenAPI schema loads without downloading a model.
+OpenAPI schema loads without downloading a model. The startup hook then pays the
+import and model load once, at boot, so the first question is not penalised.
 """
+import logging
+import os
+import time
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -15,7 +21,37 @@ from .render import to_markdown
 from .schema import FIELDS
 from .status import index_report
 
+log = logging.getLogger("uvicorn.error")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Warm the retrieval stack, then serve.
+
+    A failure is logged and swallowed: without an index or without network the
+    API still starts, and /health is what reports that it cannot answer. Failing
+    startup instead would turn a missing volume into a crash loop that says less
+    than the health check does.
+    """
+    if os.getenv("WARM_ON_STARTUP", "1") != "0":
+        started = time.perf_counter()
+        try:
+            from .search import warmup
+
+            info = warmup()
+            log.info(
+                "warm-up done in %d ms: %d chunks, %d vectors, %d dims",
+                info["ms"], info["chunks"], info["vectors"], info["dimensions"],
+            )
+        except Exception as exc:  # noqa: BLE001 - startup must not die on this
+            log.warning(
+                "warm-up skipped after %.1fs: %s", time.perf_counter() - started, exc
+            )
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Insurance Policy Analyzer",
     version="0.2.0",
     description=(

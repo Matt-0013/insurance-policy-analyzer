@@ -1,5 +1,6 @@
 ﻿import json
 import sys
+import time
 from functools import lru_cache
 
 import bm25s
@@ -145,6 +146,29 @@ def search_multi(
     if mode == "rerank":
         return rerank(unique[0], fused, k)
     return fused[:k]
+
+
+def warmup() -> dict:
+    """Load everything the first question needs, before the first question.
+
+    The API imports this module on the first request on purpose, so /health and
+    the OpenAPI schema do not drag in torch. That choice makes the first /ask the
+    slowest one: it pays the import, the model load and the BM25 index build on
+    top of its own retrieval (~18 s of the 25 s measured on CPU). Calling this
+    from the startup hook moves that cost to boot, where a container is expected
+    to take a moment, instead of onto a user's first question.
+    """
+    started = time.perf_counter()
+    model = _model()
+    collection = _collection()
+    chunks = _chunks()
+    _bm25()
+    return {
+        "ms": round((time.perf_counter() - started) * 1000),
+        "chunks": len(chunks),
+        "vectors": collection.count(),
+        "dimensions": model.get_embedding_dimension(),
+    }
 
 
 def main() -> None:

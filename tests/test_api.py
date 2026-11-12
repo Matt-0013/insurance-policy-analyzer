@@ -72,6 +72,29 @@ def test_health_reports_degraded_when_the_index_is_missing(monkeypatch, tmp_path
     assert "chroma.sqlite3" in body["index"]["detail"]
 
 
+def test_startup_can_skip_the_warmup(monkeypatch):
+    # The hook is on by default because a container is expected to spend a moment
+    # booting, but tests and scripts must be able to opt out.
+    monkeypatch.setenv("WARM_ON_STARTUP", "0")
+    with TestClient(api.app) as warm_client:
+        assert warm_client.get("/health").status_code == 200
+
+
+def test_startup_survives_a_failing_warmup(monkeypatch):
+    # A missing volume or no network must not crash-loop the container: /health
+    # is what reports that the service cannot answer yet.
+    import insurance_policy_analyzer.search as search
+
+    monkeypatch.delenv("WARM_ON_STARTUP", raising=False)
+
+    def boom():
+        raise RuntimeError("index unavailable")
+
+    monkeypatch.setattr(search, "warmup", boom)
+    with TestClient(api.app) as cold_client:
+        assert cold_client.get("/health").status_code == 200
+
+
 def test_documents_lists_the_registered_policies():
     response = client.get("/documents")
     assert response.status_code == 200
