@@ -39,5 +39,13 @@ RUN python -c "from insurance_policy_analyzer.config import EMBEDDING_MODEL; fro
 USER appuser
 EXPOSE 8000 8501
 
+# Warm-up takes ~30 s, so the start period has to outlast it: without it the first
+# probes land while the app is still loading and the orchestrator restarts a
+# container that was only booting. The probe is python because the slim base has
+# no curl, and /health answers 503 when the index is missing, which urllib turns
+# into a non-zero exit.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"
+
 # The API is the default; docker-compose overrides the command for the UI.
 CMD ["uvicorn", "insurance_policy_analyzer.api:app", "--host", "0.0.0.0", "--port", "8000"]
