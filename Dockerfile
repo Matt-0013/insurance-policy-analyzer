@@ -26,8 +26,16 @@ COPY data ./data
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH=/app/src \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    HF_HOME=/app/.cache/huggingface
 
+
+# Bake the embedding model in. Without it the first /ask spends about 50 seconds
+# downloading weights, which makes a cold container look broken and makes every
+# restarted replica pay that cost again. The chmod matters because the build runs
+# as root while the server runs as appuser, which must be able to read the cache.
+RUN python -c "from insurance_policy_analyzer.config import EMBEDDING_MODEL; from sentence_transformers import SentenceTransformer; SentenceTransformer(EMBEDDING_MODEL)" \
+    && chmod -R a+rX /app/.cache
 USER appuser
 EXPOSE 8000 8501
 
