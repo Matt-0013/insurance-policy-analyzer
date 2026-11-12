@@ -10,6 +10,7 @@ import re
 from insurance_policy_analyzer.prompts import REFUSAL
 
 CITE = re.compile(r"\[(\d+)\]")
+FULLWIDTH_BRACKETS = str.maketrans({chr(0x3010): "[", chr(0x3011): "]", chr(0xFF3B): "[", chr(0xFF3D): "]"})
 
 # A number, optional Indian multiplier or percent sign. The lookbehind keeps
 # citation markers ([1]) and word-internal digits (chunk-0007) out.
@@ -63,7 +64,9 @@ def extract_numbers(text: str) -> list[dict]:
 
 
 def parse_citations(answer: str) -> list[int]:
-    return sorted({int(n) for n in CITE.findall(answer)})
+    # gpt-oss sometimes emits fullwidth brackets instead of [1], which made
+    # correct, cited answers look uncited and ungrounded.
+    return sorted({int(n) for n in CITE.findall(answer.translate(FULLWIDTH_BRACKETS))})
 
 
 def unsupported_numbers(answer: str, sources: list[str]) -> list[dict]:

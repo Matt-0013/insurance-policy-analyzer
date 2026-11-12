@@ -52,3 +52,10 @@ def test_refusal_is_grounded():
     result = verify(REFUSAL, [])
     assert result["grounded"] is True
     assert result["refused"] is True
+
+
+def test_fullwidth_citation_brackets_are_parsed():
+    """gpt-oss emits fullwidth brackets; those citations must still count."""
+    from insurance_policy_analyzer.citations import parse_citations
+
+    assert parse_citations("Covered up to Rs. 2,000 \u30101\u3011 and 30 days \u30102\u3011.") == [1, 2]

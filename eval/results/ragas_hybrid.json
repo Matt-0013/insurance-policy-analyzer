@@ -1,0 +1,69 @@
+{
+  "summary": {
+    "mode": "hybrid",
+    "judge_model": "openai/gpt-oss-20b",
+    "embedding_model": "ibm-granite/granite-embedding-small-english-r2",
+    "sample_size": 5,
+    "judge_failures": 1,
+    "metrics": {
+      "faithfulness": 0.533,
+      "answer_relevancy": 0.927,
+      "llm_context_precision_without_reference": 0.967
+    },
+    "deterministic_grounded_rate": 0.4,
+    "refusal_rate_on_unanswerable": 1.0,
+    "notes": "context recall not reported: it needs a reference answer per question. deterministic_grounded_rate comes from citations.py, not from the judge."
+  },
+  "rows": [
+    {
+      "id": "niva-ambulance-road",
+      "sources": 3,
+      "deterministic_grounded": false,
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.855,
+      "llm_context_precision_without_reference": 1.0
+    },
+    {
+      "id": "care-ped-wait",
+      "sources": 3,
+      "deterministic_grounded": true,
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.975,
+      "llm_context_precision_without_reference": 1.0
+    },
+    {
+      "id": "care-room-rent",
+      "sources": 3,
+      "deterministic_grounded": false,
+      "faithfulness": 0.5,
+      "answer_relevancy": null,
+      "llm_context_precision_without_reference": 1.0
+    },
+    {
+      "id": "care-named-ailments",
+      "sources": 3,
+      "deterministic_grounded": false,
+      "faithfulness": 0.5,
+      "answer_relevancy": 0.885,
+      "llm_context_precision_without_reference": 1.0
+    },
+    {
+      "id": "icici-30day-wait",
+      "sources": 3,
+      "deterministic_grounded": true,
+      "faithfulness": 0.667,
+      "answer_relevancy": 0.992,
+      "llm_context_precision_without_reference": 0.833
+    }
+  ],
+  "refusals": [
+    {
+      "question_id": "none-premium-45",
+      "refused": true
+    },
+    {
+      "question_id": "none-claim-ratio",
+      "refused": true
+    }
+  ]
+}
