@@ -260,6 +260,10 @@ endpoint, so `/health` and the OpenAPI schema answer without loading a model.
 and returns `503` rather than `200` when nothing is indexed — an empty store is
 not healthy just because the process is up.
 
+The startup hook then pays that import and model load once, so the first question
+is not the slowest one; a failed warm-up is logged rather than raised, and
+`WARM_ON_STARTUP=0` skips it.
+
 ## UI
 
 ```bash

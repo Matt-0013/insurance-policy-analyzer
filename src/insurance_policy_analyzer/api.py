@@ -36,12 +36,17 @@ async def lifespan(_: FastAPI):
     if os.getenv("WARM_ON_STARTUP", "1") != "0":
         started = time.perf_counter()
         try:
+            # Importing the pipeline is its own cost: groq, langchain and their
+            # clients only load when this module does, which is why the first
+            # question still took 7.2 s against a 2.5 s pipeline.
+            from . import pipeline  # noqa: F401 - the import is the point
             from .search import warmup
 
             info = warmup()
             log.info(
-                "warm-up done in %d ms: %d chunks, %d vectors, %d dims",
-                info["ms"], info["chunks"], info["vectors"], info["dimensions"],
+                "warm-up done in %.1fs: pipeline imported, %d chunks, %d vectors, %d dims",
+                time.perf_counter() - started,
+                info["chunks"], info["vectors"], info["dimensions"],
             )
         except Exception as exc:  # noqa: BLE001 - startup must not die on this
             log.warning(
