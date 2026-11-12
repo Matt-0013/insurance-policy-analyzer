@@ -215,6 +215,11 @@ Polarity is read narrowest-first: IRDAI code within +/-150 characters, then the
 owning sentence, then the same-chunk preamble, then only strong markers
 ("shall not be liable") in the previous chunk, then an `Exclusions` heading.
 
+Every weight and every evidence window, with the corpus clause that justifies
+it, is generated into [docs/SCORING.md](docs/SCORING.md). The table is produced
+from the code by `python -m insurance_policy_analyzer.compare --table`, and a
+test fails if the document and the code disagree.
+
 **Known limitations, stated rather than hidden**
 
 - ICICI and Niva Bupa `maternity` are `excluded` through `Code-Excl18` in the
