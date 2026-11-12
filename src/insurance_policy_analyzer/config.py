@@ -14,6 +14,7 @@ EMBEDDING_MODEL = "ibm-granite/granite-embedding-small-english-r2"
 RERANK_MODEL = os.getenv("RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 COLLECTION_NAME = "policy_chunks"
+MODES = ("vector", "keyword", "hybrid", "rerank")
 GENERATION_MODEL = "openai/gpt-oss-120b"
 REWRITE_MODEL = "openai/gpt-oss-20b"
 REASONING_EFFORT = "low"

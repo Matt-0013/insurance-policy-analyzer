@@ -12,11 +12,11 @@ from insurance_policy_analyzer.config import (
     CHUNKS_DIR,
     COLLECTION_NAME,
     EMBEDDING_MODEL,
+    MODES,
 )
 from insurance_policy_analyzer import registry
 from insurance_policy_analyzer.rerank import rerank
 
-MODES = ("vector", "keyword", "hybrid", "rerank")
 # Keep amounts like "2,50,000" as one token; \w+ covers everything else.
 TOKEN_PATTERN = r"(?u)\d+(?:,\d+)+|\w+"
 RRF_K = 60
