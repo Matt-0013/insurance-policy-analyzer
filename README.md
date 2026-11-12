@@ -217,8 +217,10 @@ owning sentence, then the same-chunk preamble, then only strong markers
 
 **Known limitations, stated rather than hidden**
 
-- ICICI and Niva Bupa `maternity` read `stated` although the quoted text is a
-  carve-out list; the governing header is more than one chunk away.
+- ICICI and Niva Bupa `maternity` are `excluded` through `Code-Excl18` in the
+  section heading; Star Health is `stated` because a benefit sentence grants two
+  deliveries. That is the rule: a code in the heading beats an incidental mention,
+  and an explicit cover grant beats the code.
 - Cells quote the clause instead of extracting normalised values ("36 months",
   "1% of Sum Insured") — value extraction is the next step.
 - Care Health `ambulance` is `not stated`: the only mentions are a consumables

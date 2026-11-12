@@ -45,6 +45,7 @@ EXCLUSION_SECTION = (
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+|\n+")
 CODE_MARKER = re.compile(r"code\s*[-\u2013]\s*excl\s*\d+", re.IGNORECASE)
 DEFINITION = re.compile(r"\bmeans\b", re.IGNORECASE)
+COVERAGE_CUE = re.compile(r"\bcover(?:ed|ing)?\b|\bbenefits?\b|\bwe\s+will\s+pay\b", re.IGNORECASE)
 QUANTITY = re.compile(
     r"\d+\s*(?:%|percent)|\brs\.?\s*[\d,]+|\b\d+\s*(?:months?|days?|years?)\b",
     re.IGNORECASE,
@@ -166,6 +167,11 @@ def candidates_for(spec: FieldSpec, chunks: list[dict]) -> list[tuple]:
         # inside some other exclusion list.
         if evidence == "section-code":
             score += 4
+        # A clean sentence that explicitly grants cover ("providing cover for ...
+        # maternity-related benefits") beats a coded exclusion heading: Star
+        # Health sells maternity cover and still lists an Excl 18 for the base plan.
+        if not evidence and COVERAGE_CUE.search(sentence):
+            score += 5
         if sentence.count(",") >= 3:
             score -= 1
         found.append((score, -index, index, evidence, chunk, match))
