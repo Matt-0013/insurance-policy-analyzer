@@ -46,12 +46,21 @@ SENTENCE_END = re.compile(r"(?<=[.!?])\s+|\n+")
 CODE_MARKER = re.compile(r"code\s*[-\u2013]\s*excl\s*\d+", re.IGNORECASE)
 DEFINITION = re.compile(r"\bmeans\b", re.IGNORECASE)
 COVERAGE_CUE = re.compile(r"\bcover(?:ed|ing)?\b|\bbenefits?\b|\bwe\s+will\s+pay\b", re.IGNORECASE)
+# A coded heading that still grants cover after N months is a waiting period, not
+# a carve-out: IRDAI Excl 01 (pre-existing disease) and the specified-disease code
+# are waiting periods in almost every wording.
+WAITING_PERIOD = re.compile(
+    r"waiting\s+period|months?\s+of\s+continuous\s+coverage", re.IGNORECASE
+)
 QUANTITY = re.compile(
     r"\d+\s*(?:%|percent)|\brs\.?\s*[\d,]+|\b\d+\s*(?:months?|days?|years?)\b",
     re.IGNORECASE,
 )
 
 PREAMBLE_CHARS = 250
+# PDF line breaks split a clause across sentences; the waiting period often
+# lands just after the match, so the window runs past the sentence end.
+NEXT_CHARS = 220
 TAIL_CHARS = 250
 CODE_RADIUS = 150
 CHUNKS_GLOB = "data/chunks/*.json"
@@ -152,6 +161,11 @@ def candidates_for(spec: FieldSpec, chunks: list[dict]) -> list[tuple]:
 
         sentence = _sentence(text, match.start())
         evidence = _evidence(chunks, index, match)
+        window = sentence + text[match.end():match.end() + NEXT_CHARS]
+        if evidence == "section-code" and WAITING_PERIOD.search(window):
+            # "Code-Excl01 ... until 36 months of continuous coverage" is cover
+            # that starts later, so the cell is stated, not excluded.
+            evidence = ""
         score = 0
         if not evidence:
             score += 2

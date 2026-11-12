@@ -220,7 +220,9 @@ owning sentence, then the same-chunk preamble, then only strong markers
 - ICICI and Niva Bupa `maternity` are `excluded` through `Code-Excl18` in the
   section heading; Star Health is `stated` because a benefit sentence grants two
   deliveries. That is the rule: a code in the heading beats an incidental mention,
-  and an explicit cover grant beats the code.
+  an explicit cover grant beats the code, and a coded heading that still states a
+  waiting period ("Code-Excl01 ... until 36 months of continuous coverage") is a
+  waiting period, not a carve-out.
 - Cells quote the clause instead of extracting normalised values ("36 months",
   "1% of Sum Insured") — value extraction is the next step.
 - Care Health `ambulance` is `not stated`: the only mentions are a consumables

@@ -95,3 +95,19 @@ def test_state_depends_on_delegation_and_quantity():
     assert decide_state("", scheduled=True, has_quantity=True) == STATED
     assert decide_state("", scheduled=False, has_quantity=False) == STATED
     assert decide_state("sentence", scheduled=False, has_quantity=False) == EXCLUDED
+
+
+def test_section_code_with_a_waiting_period_after_a_line_break_is_cover():
+    """ICICI words Excl 01 as cover that starts after 36 months, and the PDF line
+    break puts the duration in the next sentence."""
+    from insurance_policy_analyzer.schema import FieldSpec
+
+    spec = FieldSpec("ped", "PED", (r"pre-?existing\s*disease",))
+    chunks = [
+        chunk(
+            "1. Expenses related to the treatment of a preexisting Disease (PED) "
+            "are payable only after\n36 months of continuous coverage",
+            section="1. Pre-Existing Diseases (Code-Excl01)",
+        )
+    ]
+    assert candidates_for(spec, chunks)[0][3] == ""
