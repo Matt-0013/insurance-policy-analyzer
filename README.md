@@ -9,8 +9,11 @@ local embeddings, hybrid retrieval, query rewriting, optional cross-encoder
 reranking, grounded generation with Groq, and a deterministic hallucination check
 on every answer.
 
-**Status:** retrieval and answer quality are done and measured; comparison,
-FastAPI, Streamlit, RAGAS and Docker are next — see [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status:** the pipeline, the service and the packaging are built. Retrieval,
+answer quality and the comparison matrix are measured — see the numbers below.
+FastAPI, Streamlit, RAGAS, Docker and CI are in place; what remains is evaluation
+depth, metadata filters, upload endpoints and the demo write-up — see
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 
@@ -164,18 +167,36 @@ label is checkable rather than a judgement call.
 
 Known limitation: phrase-based labels only credit a chunk that contains the
 expected wording. A chunk that answers the question differently is scored as a
-miss — part of why the rerankers look worse than they may be. Answer-level
-metrics (RAGAS) are on the roadmap.
+miss — part of why the rerankers look worse than they may be. Answer-level metrics are reported in
+[`eval/report.md`](eval/report.md).
 
 ---
 
 ## Limitations
 
-- The index is rebuilt from scratch on ingest; no incremental add/delete yet.
+- **Evaluation depth.** RAGAS runs on 5 of the 12 golden questions and one judge
+  call failed; faithfulness 0.53 is the weakest number here. Context recall cannot
+  be reported because the golden set has no reference answers. `eval/report.md`
+  predates the citation fix, so its `grounded 0.4` row is stale — the rule-based
+  check now reports 1.00.
+- **Ingestion is CLI-only.** `POST /documents` and `DELETE /documents/{id}` do not
+  exist, and the index is rebuilt from scratch; there is no incremental add/delete.
+- **Filtering is in-process.** Chunk metadata carries the policy id but not insurer
+  or doc type, so the policy filter is applied after retrieval rather than as a
+  Chroma `where` clause.
+- **Comparison cells quote, they do not extract.** A cell returns the clause that
+  decides it plus a page, not a normalised value — "up to Rs. 2,000" is text, not
+  a number a caller can compare.
+- **Star `day_care` reads `excluded`** through `Code-Excl 14`, although the brochure
+  only never describes the benefit; the matcher follows the code, not the intent.
+- **Docker needs a patient probe.** The container warms the model and the pipeline
+  import at startup and answers nothing for 18-33 s, so a readiness timeout below
+  ~35 s will kill it mid-boot. `data/` must be writable by uid 10001: Chroma needs
+  its SQLite WAL, and a read-only mount fails warm-up and then every `/ask`.
 - One corpus per deployment; no per-user isolation or auth.
 - Groq free tier limits request rate and tokens per minute.
 - The reranker is available but off by default (measured, not assumed).
-- The API and UI do not exist yet; this is a library + CLI today.
+- CI runs the test suite only — no lint step and no image build.
 
 ---
 
