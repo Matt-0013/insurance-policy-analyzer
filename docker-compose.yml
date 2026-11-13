@@ -1,12 +1,20 @@
 services:
   api:
     build: .
+    # Covers a crashed process (OOM, exception at import). It does not act on an
+    # unhealthy status: Docker treats health as a report, not a trigger, so a
+    # container whose /health returns 503 stays up under this policy too. That
+    # needs an external monitor (autoheal) or an orchestrator's liveness probe.
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
       GROQ_API_KEY: ${GROQ_API_KEY:?set GROQ_API_KEY in your shell or a .env file}
     volumes:
-      # Keep the index, chunks and PDFs on the host so restarts are cheap.
+      # Keep the index, chunks and PDFs on the host so restarts are cheap, but note
+      # that Chroma writes a SQLite WAL here: a data directory not writable by uid
+      # 10001 (appuser) makes warm-up fail with "attempt to write a readonly
+      # database" and every /ask return 500.
       - ./data:/app/data
 
   ui:
@@ -24,5 +32,18 @@ services:
       API_URL: http://api:8000
     volumes:
       - ./data:/app/data
+    # The image's probe targets :8000, which is the API. Streamlit serves :8501, so
+    # without this override the UI inherits a probe that can never pass and would
+    # report unhealthy forever.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    # Wait for /health rather than for the container to exist: the API needs ~20-30 s
+    # of warm-up and answers nothing until then, so a plain depends_on would start
+    # Streamlit against a dead socket.
     depends_on:
-      - api
+      api:
+        condition: service_healthy
