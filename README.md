@@ -174,11 +174,12 @@ miss — part of why the rerankers look worse than they may be. Answer-level met
 
 ## Limitations
 
-- **Evaluation depth.** RAGAS runs on 5 of the 12 golden questions and one judge
-  call failed; faithfulness 0.53 is the weakest number here. Context recall cannot
-  be reported because the golden set has no reference answers. `eval/report.md`
-  predates the citation fix, so its `grounded 0.4` row is stale — the rule-based
-  check now reports 1.00.
+- **Evaluation depth.** RAGAS covers 10 of the 12 golden questions and 2 of its 30
+  judge calls returned null; faithfulness 0.84 is the weakest real number here.
+  Context recall still cannot be reported because the golden set has no reference
+  answers. The rule-based grounding rate is 0.80: two answers came back ungrounded
+  and neither reproduced on a re-ask, so the generator is the variable, not the
+  checker.
 - **Ingestion is CLI-only.** `POST /documents` and `DELETE /documents/{id}` do not
   exist, and the index is rebuilt from scratch; there is no incremental add/delete.
 - **Filtering is in-process.** Chunk metadata carries the policy id but not insurer
@@ -309,25 +310,27 @@ Multi-stage build (uv resolves dependencies in the builder), non-root runtime,
 ## Answer quality (RAGAS)
 
 ```bash
-uv run python -m insurance_policy_analyzer.eval_ragas --limit 5 --k 3
+uv run python -m insurance_policy_analyzer.eval_ragas --k 3
 # -> eval/results/ragas_hybrid.json and eval/report.md
 ```
 
-Run on 5 answerable questions, judge `openai/gpt-oss-20b` via Groq's
-OpenAI-compatible endpoint (no OpenAI key):
+Run on all 10 answerable questions (the 2 unanswerable ones are checked for
+refusal), judge `openai/gpt-oss-20b` via Groq's OpenAI-compatible endpoint (no
+OpenAI key):
 
 | metric | score | what it measures |
 | --- | --- | --- |
-| faithfulness | 0.53 | are the answer's claims supported by the retrieved clauses |
-| answer relevancy | 0.93 | does the answer address the question asked |
-| context precision | 0.97 | did retrieval bring clauses that matter |
+| faithfulness | 0.84 | are the answer's claims supported by the retrieved clauses |
+| answer relevancy | 0.96 | does the answer address the question asked |
+| context precision | 0.98 | did retrieval bring clauses that matter |
 | refusal on unanswerable | 1.00 | 2 of 2 refused instead of guessing |
-| grounded, rule-based (`citations.py`) | 1.00 (post-fix) | every figure and citation appears in the sources |
+| grounded, rule-based (`citations.py`) | 0.80 | every figure and citation appears in the sources |
 
 Read that table honestly:
 
-- **n = 5, with one judge failure** (recorded as null, excluded from the mean).
-  This is a smoke-scale measurement, not a benchmark.
+- **n = 10 of 12, with 2 judge failures** (recorded as null, excluded from the
+  mean). Larger than the five-question smoke run this replaces, and still not a
+  benchmark.
 - **The judge and the rule-based checker disagree**, and they measure different
   things: `citations.py` checks that every figure appears verbatim in a source,
   RAGAS faithfulness checks whether each claim is entailed by the context. An
@@ -337,9 +340,13 @@ Read that table honestly:
   and a 20b judge. The 120b judge returns 429s; a paid tier would let the sample
   grow and the judge be stronger.
 - **Context recall is not reported**: it needs a reference answer per question,
-- **The 0.40 above this line was a bug, not a hallucination rate.** gpt-oss emits
-  fullwidth citation brackets (`【1】`) instead of `[1]`, so `parse_citations`
-  found no citations and marked correct answers ungrounded. After normalising the
-  brackets, all 5 answers verify: rule-based grounding is **1.00**. RAGAS faithfulness
-  was never affected, because the judge reads the text, not the bracket syntax.
   and writing references after seeing the output would measure the references.
+- **The two rule-based failures did not reproduce.** `care-room-rent` and
+  `icici-maternity` came back `grounded: false` in the run, and both verified on a
+  re-ask. The checker is deterministic given an answer; the generator is not, so
+  read 0.80 as one sample of a moving rate rather than a fixed defect.
+- **The earlier 0.53 and 0.40 rows were wrong in different ways.** 0.53 came from
+  a five-question run; 0.40 came from a parser bug — gpt-oss emits fullwidth
+  citation brackets (`【1】`) instead of `[1]`, so `parse_citations` found nothing
+  and flagged correct answers as unsupported. RAGAS faithfulness was never
+  affected, because the judge reads the text, not the bracket syntax.

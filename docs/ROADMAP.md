@@ -32,15 +32,14 @@ the tests green, the README honest, and a number you can quote.
 | API | FastAPI `/ask`, `/compare`, `/documents`, `/health` with typed contracts and CORS (`api.py`); `/health` reports stored vectors against the chunk count and answers 503 when nothing is indexed |
 | Startup | the lifespan hook loads the embedding model, the collection, the chunks and the BM25 index, and imports the pipeline, so the first question costs what every question costs (~18-33 s of boot) |
 | UI | Streamlit: ask with citations, compare table, documents, evaluation tabs (`app.py`) |
-| Answer eval | `eval/eval_ragas.py` and a committed `eval/report.md`: faithfulness 0.53, answer relevancy 0.93, context precision 0.97, refusal 1.00 on 5 questions, judge `openai/gpt-oss-20b` |
+| Answer eval | `eval/eval_ragas.py` and a committed `eval/report.md`: faithfulness 0.84, answer relevancy 0.96, context precision 0.98, rule-based grounding 0.80, refusal 1.00 on 10 questions, judge `openai/gpt-oss-20b` |
 | Packaging | multi-stage non-root Dockerfile with CPU-only torch (2.56 GB, down from 7.1 GB), the embedding model baked in, and a healthcheck with a 60 s start period; docker-compose (api + ui) gates the UI on `service_healthy` and restarts a crashed API; Makefile; GitHub Actions CI |
 | Tests | 73 tests covering extraction, cleaning, chunking, fusion, citations, rewriting, context, memory, comparison, the scoring table and the API |
 
 **Still missing:** Stage 2 metadata (UIN and effective-date extraction, insurer and
 doc type in chunk metadata so retrieval can filter with a `where` clause, duplicate
 upload detection); `POST /documents` and `DELETE /documents/{id}`; a ~30-question
-golden set with reference answers so context recall can be reported, and a RAGAS
-re-run that supersedes the stale `grounded 0.4` row; `ruff`/`pre-commit` and an
+golden set with reference answers so context recall can be reported; `ruff`/`pre-commit` and an
 image build in CI; rate limiting and upload validation; `docs/DECISIONS.md`,
 screenshots and a demo GIF (Stages 6 and 8).
 

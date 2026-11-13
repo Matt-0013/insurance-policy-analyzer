@@ -3,14 +3,14 @@
     "mode": "hybrid",
     "judge_model": "openai/gpt-oss-20b",
     "embedding_model": "ibm-granite/granite-embedding-small-english-r2",
-    "sample_size": 5,
-    "judge_failures": 1,
+    "sample_size": 10,
+    "judge_failures": 2,
     "metrics": {
-      "faithfulness": 0.533,
-      "answer_relevancy": 0.927,
-      "llm_context_precision_without_reference": 0.967
+      "faithfulness": 0.843,
+      "answer_relevancy": 0.957,
+      "llm_context_precision_without_reference": 0.981
     },
-    "deterministic_grounded_rate": 0.4,
+    "deterministic_grounded_rate": 0.8,
     "refusal_rate_on_unanswerable": 1.0,
     "notes": "context recall not reported: it needs a reference answer per question. deterministic_grounded_rate comes from citations.py, not from the judge."
   },
@@ -18,16 +18,16 @@
     {
       "id": "niva-ambulance-road",
       "sources": 3,
-      "deterministic_grounded": false,
+      "deterministic_grounded": true,
       "faithfulness": 1.0,
-      "answer_relevancy": 0.855,
+      "answer_relevancy": 0.87,
       "llm_context_precision_without_reference": 1.0
     },
     {
       "id": "care-ped-wait",
       "sources": 3,
       "deterministic_grounded": true,
-      "faithfulness": 0.0,
+      "faithfulness": 0.667,
       "answer_relevancy": 0.975,
       "llm_context_precision_without_reference": 1.0
     },
@@ -35,25 +35,65 @@
       "id": "care-room-rent",
       "sources": 3,
       "deterministic_grounded": false,
-      "faithfulness": 0.5,
-      "answer_relevancy": null,
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.953,
       "llm_context_precision_without_reference": 1.0
     },
     {
       "id": "care-named-ailments",
       "sources": 3,
-      "deterministic_grounded": false,
-      "faithfulness": 0.5,
-      "answer_relevancy": 0.885,
+      "deterministic_grounded": true,
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.907,
       "llm_context_precision_without_reference": 1.0
     },
     {
       "id": "icici-30day-wait",
       "sources": 3,
       "deterministic_grounded": true,
-      "faithfulness": 0.667,
-      "answer_relevancy": 0.992,
+      "faithfulness": 0.75,
+      "answer_relevancy": 0.999,
       "llm_context_precision_without_reference": 0.833
+    },
+    {
+      "id": "icici-maternity",
+      "sources": 3,
+      "deterministic_grounded": false,
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.977,
+      "llm_context_precision_without_reference": 1.0
+    },
+    {
+      "id": "niva-copay",
+      "sources": 3,
+      "deterministic_grounded": true,
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.996,
+      "llm_context_precision_without_reference": 1.0
+    },
+    {
+      "id": "niva-ped-wait",
+      "sources": 3,
+      "deterministic_grounded": true,
+      "faithfulness": 0.667,
+      "answer_relevancy": 0.959,
+      "llm_context_precision_without_reference": null
+    },
+    {
+      "id": "star-sum-insured",
+      "sources": 3,
+      "deterministic_grounded": true,
+      "faithfulness": 0.5,
+      "answer_relevancy": 0.996,
+      "llm_context_precision_without_reference": 1.0
+    },
+    {
+      "id": "star-newborn-limit",
+      "sources": 3,
+      "deterministic_grounded": true,
+      "faithfulness": null,
+      "answer_relevancy": 0.942,
+      "llm_context_precision_without_reference": 1.0
     }
   ],
   "refusals": [
