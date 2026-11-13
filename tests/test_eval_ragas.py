@@ -5,8 +5,11 @@ The header is the part that silently drifts: a run of ten questions with two nul
 judge scores used to read "10 questions" and nothing else, which overstates the
 sample each mean is computed over. These tests fail if the count, the sample size
 or the judge's real name disappears.
+
+Imported from `eval_report`, not `eval_ragas`: the evaluator pulls in torch via the
+pipeline, and these tests only look at a string.
 """
-from insurance_policy_analyzer.eval_ragas import render_report
+from insurance_policy_analyzer.eval_report import render_report
 
 SUMMARY = {
     "mode": "hybrid",
