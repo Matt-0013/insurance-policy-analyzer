@@ -160,15 +160,26 @@ def health(response: Response) -> dict:
     container in rotation, and the failure surfaces later as a 500 from /ask.
     """
     index = index_report()
-    usable = index["present"] and _STACK["ok"] is not False
-    if not usable:
+    state = _STACK["ok"]
+    if not index["present"] or state is False:
         response.status_code = 503
+        status = "degraded"
+    elif state is None:
+        # WARM_ON_STARTUP=0 and no question asked yet: nothing has tried to open the
+        # store, so claiming "ok" would be a guess. Unknown is the honest answer, and
+        # it is not a failure — a lazy worker that has not been used is fine.
+        status = "unknown"
+    else:
+        status = "ok"
     return {
-        "status": "ok" if usable else "degraded",
+        "status": status,
         "policies": len(registry.policy_ids()),
         "modes": list(MODES),
         "index": index,
-        "stack": {"loaded": _STACK["ok"], "error": _STACK["error"]},
+        "stack": {
+            "state": {None: "unknown", True: "ready", False: "failed"}[state],
+            "error": _STACK["error"],
+        },
     }
 
 

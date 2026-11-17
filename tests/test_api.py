@@ -45,13 +45,32 @@ def fake_answer(question: str, **kwargs) -> dict:
 
 
 def test_health_reports_modes_without_loading_models():
+    # No warm-up has run in this client, so the stack is unknown rather than ok: the
+    # index is on disk, but nothing has proved the store can be opened.
     response = client.get("/health")
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "ok"
+    assert body["status"] == "unknown"
+    assert body["stack"]["state"] == "unknown"
     assert "hybrid" in body["modes"]
     assert body["index"]["present"] is True
     assert body["index"]["detail"]
+
+
+def test_health_reports_unknown_when_the_warmup_was_skipped(monkeypatch):
+    # WARM_ON_STARTUP=0 is a deliberate deployment choice; /health must say the stack
+    # has not been tried, not that it works.
+    monkeypatch.setenv("WARM_ON_STARTUP", "0")
+    monkeypatch.setattr(api, "_STACK", {"ok": None, "error": None})
+
+    with TestClient(api.app) as lazy_client:
+        response = lazy_client.get("/health")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "unknown"
+    assert body["stack"] == {"state": "unknown", "error": None}
+    assert body["index"]["present"] is True
 
 
 def test_health_reports_degraded_when_the_index_is_missing(monkeypatch, tmp_path):
@@ -99,7 +118,7 @@ def test_startup_survives_a_failing_warmup_but_health_reports_it(monkeypatch):
     assert response.status_code == 503
     body = response.json()
     assert body["status"] == "degraded"
-    assert body["stack"]["loaded"] is False
+    assert body["stack"]["state"] == "failed"
     assert "index unavailable" in body["stack"]["error"]
 
 
@@ -114,6 +133,7 @@ def test_health_reports_degraded_when_the_stack_failed_to_load(monkeypatch):
     body = response.json()
     assert body["status"] == "degraded"
     assert body["index"]["present"] is True
+    assert body["stack"]["state"] == "failed"
     assert "readonly" in body["stack"]["error"]
 
 
@@ -140,7 +160,10 @@ def test_a_served_question_clears_a_failed_warmup(monkeypatch):
 
     assert client.post("/ask", json={"question": "What is the room rent limit?"}).status_code == 200
     assert api._STACK == {"ok": True, "error": None}
-    assert client.get("/health").status_code == 200
+    health = client.get("/health")
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+    assert health.json()["stack"]["state"] == "ready"
 
 
 def test_documents_lists_the_registered_policies():

@@ -264,7 +264,7 @@ uv run uvicorn insurance_policy_analyzer.api:app --reload --port 8000
 
 | endpoint | purpose |
 | --- | --- |
-| `GET /health` | liveness plus index presence: stored vectors vs chunk count, and `503` when the collection is empty, missing, or the retrieval stack failed to load |
+| `GET /health` | liveness plus index presence: stored vectors vs chunk count, and `503` when the collection is empty, missing, or the retrieval stack failed to load; `stack.state` is `unknown` until something has actually opened the store |
 | `GET /documents` | indexed policies with insurer, product, doc type, aliases |
 | `POST /ask` | question + optional history/policy/mode/k -> answer, sources, grounding, timings |
 | `POST /compare` | optional policy subset -> per-field cells with state, quote, page, plus markdown |
@@ -281,7 +281,11 @@ The retrieval stack (torch, chromadb, the embedding model) is imported inside th
 endpoint, so `/health` and the OpenAPI schema answer without loading a model.
 `/health` reads the Chroma SQLite file with stdlib `sqlite3` for the same reason,
 and returns `503` rather than `200` when nothing is indexed — an empty store is
-not healthy just because the process is up.
+not healthy just because the process is up. It reports the index and the retrieval
+stack separately, because a store on disk is not a store that opens: `stack.state`
+is `unknown` before anything has tried (for example with `WARM_ON_STARTUP=0`),
+`ready` after a successful warm-up or question, and `failed` with the reason when
+the store cannot be opened.
 
 The startup hook then pays that import and model load once, so the first question
 is not the slowest one; a failed warm-up is logged rather than raised, and
