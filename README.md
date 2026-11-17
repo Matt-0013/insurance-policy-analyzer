@@ -193,7 +193,8 @@ miss — part of why the rerankers look worse than they may be. Answer-level met
 - **Docker needs a patient probe.** The container warms the model and the pipeline
   import at startup and answers nothing for 18-33 s, so a readiness timeout below
   ~35 s will kill it mid-boot. `data/` must be writable by uid 10001: Chroma needs
-  its SQLite WAL, and a read-only mount fails warm-up and then every `/ask`.
+  its SQLite WAL, and a read-only mount fails warm-up — `/health` then reports
+  `degraded` with the reason and `/ask` answers 503 rather than 500.
 - One corpus per deployment; no per-user isolation or auth.
 - Groq free tier limits request rate and tokens per minute.
 - The reranker is available but off by default (measured, not assumed).
@@ -263,7 +264,7 @@ uv run uvicorn insurance_policy_analyzer.api:app --reload --port 8000
 
 | endpoint | purpose |
 | --- | --- |
-| `GET /health` | liveness plus index presence: stored vectors vs chunk count, and `503` when the collection is empty or missing |
+| `GET /health` | liveness plus index presence: stored vectors vs chunk count, and `503` when the collection is empty, missing, or the retrieval stack failed to load |
 | `GET /documents` | indexed policies with insurer, product, doc type, aliases |
 | `POST /ask` | question + optional history/policy/mode/k -> answer, sources, grounding, timings |
 | `POST /compare` | optional policy subset -> per-field cells with state, quote, page, plus markdown |

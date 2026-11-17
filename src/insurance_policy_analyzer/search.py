@@ -6,6 +6,7 @@ from functools import lru_cache
 import bm25s
 import chromadb
 import torch
+from chromadb.api.shared_system_client import SharedSystemClient
 from sentence_transformers import SentenceTransformer
 
 from insurance_policy_analyzer.config import (
@@ -16,6 +17,7 @@ from insurance_policy_analyzer.config import (
     MODES,
 )
 from insurance_policy_analyzer import registry
+from insurance_policy_analyzer.errors import RetrievalUnavailable
 from insurance_policy_analyzer.rerank import rerank
 
 # Keep amounts like "2,50,000" as one token; \w+ covers everything else.
@@ -31,8 +33,20 @@ def _model() -> SentenceTransformer:
 
 @lru_cache(maxsize=1)
 def _collection():
-    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
-    return client.get_collection(COLLECTION_NAME)
+    try:
+        client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+        return client.get_collection(COLLECTION_NAME)
+    except Exception as exc:
+        # chromadb keeps one System per store path in a module-level registry, and
+        # it survives the client that failed to build: a read-only data directory
+        # leaves a half-initialised system behind. The next attempt then dies in
+        # SharedSystemClient._release_system with "'RustBindingsAPI' object has no
+        # attribute 'bindings'", which hides the real error and repeats forever.
+        # Dropping the registry makes each attempt report the actual cause.
+        SharedSystemClient.clear_system_cache()
+        raise RetrievalUnavailable(
+            f"cannot open the vector store at {CHROMA_DIR}: {exc}"
+        ) from exc
 
 
 @lru_cache(maxsize=1)

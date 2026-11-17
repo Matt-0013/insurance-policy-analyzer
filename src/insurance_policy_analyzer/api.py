@@ -17,11 +17,17 @@ from pydantic import BaseModel, Field
 from . import registry
 from .compare import build_cell, load_policies
 from .config import MODES, TOP_K
+from .errors import RetrievalUnavailable
 from .render import to_markdown
 from .schema import FIELDS
 from .status import index_report
 
 log = logging.getLogger("uvicorn.error")
+
+# Whether the retrieval stack actually loaded: None means untried (warm-up skipped),
+# True means the last attempt worked, False means it failed and /health must say so.
+# An index on disk is not the same thing as a stack that can open it.
+_STACK: dict = {"ok": None, "error": None}
 
 
 @asynccontextmanager
@@ -43,14 +49,19 @@ async def lifespan(_: FastAPI):
             from .search import warmup
 
             info = warmup()
+            _STACK.update(ok=True, error=None)
             log.info(
                 "warm-up done in %.1fs: pipeline imported, %d chunks, %d vectors, %d dims",
                 time.perf_counter() - started,
                 info["chunks"], info["vectors"], info["dimensions"],
             )
         except Exception as exc:  # noqa: BLE001 - startup must not die on this
+            # Remember it. Starting anyway is right (a missing volume should not
+            # crash-loop), but the failure must reach /health rather than leaving a
+            # probe that answers ok while every question fails.
+            _STACK.update(ok=False, error=str(exc))
             log.warning(
-                "warm-up skipped after %.1fs: %s", time.perf_counter() - started, exc
+                "warm-up failed after %.1fs: %s", time.perf_counter() - started, exc
             )
     yield
 
@@ -149,13 +160,15 @@ def health(response: Response) -> dict:
     container in rotation, and the failure surfaces later as a 500 from /ask.
     """
     index = index_report()
-    if not index["present"]:
+    usable = index["present"] and _STACK["ok"] is not False
+    if not usable:
         response.status_code = 503
     return {
-        "status": "ok" if index["present"] else "degraded",
+        "status": "ok" if usable else "degraded",
         "policies": len(registry.policy_ids()),
         "modes": list(MODES),
         "index": index,
+        "stack": {"loaded": _STACK["ok"], "error": _STACK["error"]},
     }
 
 
@@ -186,7 +199,7 @@ def ask_endpoint(request: AskRequest) -> dict:
         raise HTTPException(status_code=404, detail=f"unknown policy: {request.policy}")
 
     try:
-        return ask_pipeline(
+        result = ask_pipeline(
             request.question,
             k=request.k,
             policy=request.policy,
@@ -196,6 +209,16 @@ def ask_endpoint(request: AskRequest) -> dict:
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RetrievalUnavailable as exc:
+        # 503, not 500: the request was fine and the store is the problem. This is
+        # also how a failed warm-up stops being permanent — the next question tries
+        # the store again rather than trusting a stale verdict.
+        _STACK.update(ok=False, error=str(exc))
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    # Serving a question proves the stack works, even if the boot-time warm-up failed.
+    _STACK.update(ok=True, error=None)
+    return result
 
 
 @app.post("/compare", response_model=CompareResponse)

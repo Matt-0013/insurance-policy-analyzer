@@ -80,19 +80,67 @@ def test_startup_can_skip_the_warmup(monkeypatch):
         assert warm_client.get("/health").status_code == 200
 
 
-def test_startup_survives_a_failing_warmup(monkeypatch):
-    # A missing volume or no network must not crash-loop the container: /health
-    # is what reports that the service cannot answer yet.
+def test_startup_survives_a_failing_warmup_but_health_reports_it(monkeypatch):
+    # A missing volume or no network must not crash-loop the container: the server
+    # starts anyway. It must not claim to be healthy either — this test used to
+    # assert 200 here, which is exactly the bug: ok on /health, 500 on every /ask.
     import insurance_policy_analyzer.search as search
 
     monkeypatch.delenv("WARM_ON_STARTUP", raising=False)
+    monkeypatch.setattr(api, "_STACK", {"ok": None, "error": None})
 
     def boom():
         raise RuntimeError("index unavailable")
 
     monkeypatch.setattr(search, "warmup", boom)
     with TestClient(api.app) as cold_client:
-        assert cold_client.get("/health").status_code == 200
+        response = cold_client.get("/health")
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["status"] == "degraded"
+    assert body["stack"]["loaded"] is False
+    assert "index unavailable" in body["stack"]["error"]
+
+
+def test_health_reports_degraded_when_the_stack_failed_to_load(monkeypatch):
+    # The bug this covers: the index was present, warm-up failed, /health said ok and
+    # every /ask returned 500. Presence on disk is not the same as a usable stack.
+    monkeypatch.setattr(
+        api, "_STACK", {"ok": False, "error": "cannot open the vector store: readonly database"}
+    )
+    response = client.get("/health")
+    assert response.status_code == 503
+    body = response.json()
+    assert body["status"] == "degraded"
+    assert body["index"]["present"] is True
+    assert "readonly" in body["stack"]["error"]
+
+
+def test_ask_returns_503_when_the_store_cannot_be_opened(monkeypatch):
+    from insurance_policy_analyzer.errors import RetrievalUnavailable
+
+    def unavailable(question, **kwargs):
+        raise RetrievalUnavailable("cannot open the vector store at /app/data/chroma")
+
+    monkeypatch.setattr(api, "ask_pipeline", unavailable)
+    monkeypatch.setattr(api, "_STACK", {"ok": True, "error": None})
+
+    response = client.post("/ask", json={"question": "What is the room rent limit?"})
+    assert response.status_code == 503
+    assert "vector store" in response.json()["detail"]
+    assert api._STACK["ok"] is False
+
+
+def test_a_served_question_clears_a_failed_warmup(monkeypatch):
+    # A failed boot must not condemn the process: when a later question works, the
+    # health endpoint has to stop reporting degraded.
+    monkeypatch.setattr(api, "_STACK", {"ok": False, "error": "boom"})
+    monkeypatch.setattr(api, "ask_pipeline", fake_answer)
+
+    assert client.post("/ask", json={"question": "What is the room rent limit?"}).status_code == 200
+    assert api._STACK == {"ok": True, "error": None}
+    assert client.get("/health").status_code == 200
 
 
 def test_documents_lists_the_registered_policies():
