@@ -1,10 +1,8 @@
 """Formatting for the committed RAGAS report.
 
-Deliberately separate from `eval_ragas`: that module imports the pipeline, which
-imports torch, sentence-transformers and chromadb, so anything that only needs to
-check the report's text would pay a multi-second import for it. This module
-imports nothing heavier than `datetime`, and keeps the report's exact wording in
-one place so a fresh run and a regeneration from a saved results file agree.
+Separate from `eval_ragas` because that module imports the pipeline and therefore
+torch, sentence-transformers and chromadb; checking a header string should not cost
+a model import. This module needs nothing but `datetime`.
 """
 
 from datetime import date

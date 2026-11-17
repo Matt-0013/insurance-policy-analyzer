@@ -1,13 +1,9 @@
-"""The committed report is produced by `render_report`, so these tests pin what it
-must say.
+"""The committed report is produced by `render_report`, so these tests pin its text.
 
-The header is the part that silently drifts: a run of ten questions with two null
-judge scores used to read "10 questions" and nothing else, which overstates the
-sample each mean is computed over. These tests fail if the count, the sample size
-or the judge's real name disappears.
-
-Imported from `eval_report`, not `eval_ragas`: the evaluator pulls in torch via the
-pipeline, and these tests only look at a string.
+The header is the part that drifts silently: a run of ten questions with two null
+judge scores once read "10 questions" and nothing else, overstating the sample each
+mean rests on. Imported from `eval_report`, not `eval_ragas`, so this file does not
+import torch to check a string.
 """
 from insurance_policy_analyzer.eval_report import render_report
 
@@ -27,39 +23,32 @@ SUMMARY = {
     "refusal_rate_on_unanswerable": 1.0,
 }
 
-
-def header_of(report: str) -> str:
-    return report.splitlines()[2]
+REPORT = render_report(SUMMARY, "ragas_hybrid.json")
 
 
-def test_header_carries_the_sample_size_and_judge_failure_count():
-    header = header_of(render_report(SUMMARY, "ragas_hybrid.json"))
+def test_header_states_the_sample_size_the_failures_and_the_judge():
+    header = REPORT.splitlines()[2]
     assert header.startswith("Generated ")
     assert "mode `hybrid`" in header
     assert "10 questions" in header
     assert "2 judge failures" in header
-
-
-def test_header_names_the_judge_from_the_summary():
-    assert "`openai/gpt-oss-120b`" in header_of(render_report(SUMMARY, "ragas_hybrid.json"))
-
-
-def test_every_metric_is_rendered_and_a_null_is_labelled():
-    report = render_report(SUMMARY, "ragas_hybrid.json")
-    assert "| faithfulness | 0.843 |" in report
-    assert "| answer_relevancy | 0.957 |" in report
-    # A null is a judge failure, not a zero and not a missing row.
-    assert "| llm_context_precision_without_reference | n/a |" in report
-    assert "| grounded (deterministic, no judge) | 0.8 |" in report
-    assert "| refused on unanswerable questions | 1.0 |" in report
-
-
-def test_report_points_at_the_results_file_it_came_from():
-    report = render_report(SUMMARY, "ragas_hybrid.json")
-    assert "eval/results/ragas_hybrid.json" in report
-    assert "Context recall is not reported" in report
+    assert "`openai/gpt-oss-120b`" in header
 
 
 def test_a_zero_failure_run_still_states_the_count():
-    header = header_of(render_report({**SUMMARY, "judge_failures": 0}, "ragas_hybrid.json"))
+    header = render_report({**SUMMARY, "judge_failures": 0}, "ragas_hybrid.json").splitlines()[2]
     assert "0 judge failures" in header
+
+
+def test_every_metric_is_rendered_and_a_null_is_labelled():
+    assert "| faithfulness | 0.843 |" in REPORT
+    assert "| answer_relevancy | 0.957 |" in REPORT
+    # A null is a judge failure: not a zero, not a missing row.
+    assert "| llm_context_precision_without_reference | n/a |" in REPORT
+    assert "| grounded (deterministic, no judge) | 0.8 |" in REPORT
+    assert "| refused on unanswerable questions | 1.0 |" in REPORT
+
+
+def test_report_points_at_the_results_file_it_came_from():
+    assert "eval/results/ragas_hybrid.json" in REPORT
+    assert "Context recall is not reported" in REPORT
